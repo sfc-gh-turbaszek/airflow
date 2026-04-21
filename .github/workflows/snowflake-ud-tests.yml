@@ -1,0 +1,83 @@
+---
+name: Snowflake Provider - Universal Driver Tests
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches: [main]
+    paths:
+      - "providers/snowflake/**"
+  pull_request:
+    paths:
+      - "providers/snowflake/**"
+  workflow_dispatch:
+    inputs:
+      ud-branch:
+        description: "Universal Driver branch to test against"
+        default: "main"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  snowflake-unit-tests:
+    name: "Snowflake unit tests (Universal Driver @ ${{ github.event.inputs.ud-branch || 'main' }})"
+    runs-on: ubuntu-latest
+    env:
+      UD_DIR: ${{ github.workspace }}/../universal-driver
+      # Stable target dir so the Rust cache persists across runs
+      CORE_CARGO_TARGET_DIR: ${{ github.workspace }}/../universal-driver/target
+    steps:
+      - name: "Checkout airflow"
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: "Checkout universal-driver @ ${{ github.event.inputs.ud-branch || 'main' }}"
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          repository: snowflakedb/universal-driver
+          ref: ${{ github.event.inputs.ud-branch || 'main' }}
+          path: ${{ github.workspace }}/../universal-driver
+          persist-credentials: false
+
+      - name: "Install Rust ${{ env.RUST_VERSION }} toolchain"
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # Keep in sync with universal-driver/rust-toolchain.toml
+          toolchain: "1.89.0"
+
+      - name: "Restore Rust / Cargo cache"
+        id: cargo-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            ${{ github.workspace }}/../universal-driver/target
+          key: ${{ runner.os }}-cargo-sf-core-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-sf-core-
+
+      - name: "Install system dependencies (OpenSSL, pkg-config)"
+        run: sudo apt-get update -qq && sudo apt-get install -y libssl-dev pkg-config
+
+      - name: "Install uv"
+        uses: astral-sh/setup-uv@v7.2.1
+        with:
+          version: "0.9.28"
+
+      - name: "Run Snowflake provider unit tests"
+        run: >
+          uv run --project providers/snowflake
+          pytest providers/snowflake/tests/unit/snowflake/hooks/ -v
+
+      - name: "Save Rust / Cargo cache"
+        if: always() && steps.cargo-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            ${{ github.workspace }}/../universal-driver/target
+          key: ${{ runner.os }}-cargo-sf-core-${{ hashFiles('**/Cargo.lock') }}
