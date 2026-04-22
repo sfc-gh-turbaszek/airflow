@@ -32,13 +32,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: "Checkout universal-driver @ ${{ github.event.inputs.ud-branch || 'main' }}"
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-        with:
-          repository: snowflakedb/universal-driver
-          ref: ${{ github.event.inputs.ud-branch || 'main' }}
-          path: ${{ github.workspace }}/../universal-driver
-          persist-credentials: false
+      - name: "Clone universal-driver @ ${{ github.event.inputs.ud-branch || 'main' }}"
+        run: >
+          git clone --depth=1
+          --branch ${{ github.event.inputs.ud-branch || 'main' }}
+          https://github.com/snowflakedb/universal-driver
+          ${{ github.workspace }}/../universal-driver
 
       - name: "Install Rust ${{ env.RUST_VERSION }} toolchain"
         uses: dtolnay/rust-toolchain@stable
