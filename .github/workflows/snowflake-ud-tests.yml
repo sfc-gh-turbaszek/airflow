@@ -65,6 +65,32 @@ jobs:
         with:
           version: "0.9.28"
 
+      - name: "Verify snowflake-connector-python-ud is installed (not the legacy connector)"
+        run: |
+          uv run --project providers/snowflake python - <<'EOF'
+          import importlib.metadata, sys
+
+          # Fail if the legacy connector is present
+          try:
+              importlib.metadata.version("snowflake-connector-python")
+              print("ERROR: legacy snowflake-connector-python is installed", file=sys.stderr)
+              sys.exit(1)
+          except importlib.metadata.PackageNotFoundError:
+              pass
+
+          # Confirm the UD connector is present and print its version
+          try:
+              version = importlib.metadata.version("snowflake-connector-python-ud")
+              print(f"snowflake-connector-python-ud version: {version}")
+          except importlib.metadata.PackageNotFoundError:
+              print("ERROR: snowflake-connector-python-ud is not installed", file=sys.stderr)
+              sys.exit(1)
+
+          # Confirm the native core library loaded successfully
+          from snowflake.connector._internal.api_client.c_api import register_default_logger_callback  # noqa: F401
+          print("Native sf_core library loaded successfully")
+          EOF
+
       - name: "Run Snowflake provider unit tests"
         run: >
           uv run --project providers/snowflake
