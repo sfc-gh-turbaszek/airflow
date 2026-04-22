@@ -65,9 +65,17 @@ jobs:
         with:
           version: "0.9.28"
 
+      - name: "Sync Python environment"
+        run: uv sync --project providers/snowflake
+
+      - name: "Replace legacy connector with Universal Driver"
+        # snowflake-snowpark-python declares snowflake-connector-python as a dependency,
+        # pulling in the legacy connector alongside the UD. Remove it so only the UD is active.
+        run: uv pip uninstall snowflake-connector-python --python .venv/bin/python
+
       - name: "Verify snowflake-connector-python-ud is installed (not the legacy connector)"
         run: |
-          uv run --project providers/snowflake python - <<'EOF'
+          uv run --project providers/snowflake --no-sync python - <<'EOF'
           import importlib.metadata, sys
 
           # Fail if the legacy connector is present
@@ -93,7 +101,7 @@ jobs:
 
       - name: "Run Snowflake provider unit tests"
         run: >
-          uv run --project providers/snowflake
+          uv run --project providers/snowflake --no-sync
           pytest providers/snowflake/tests/unit/snowflake/hooks/ -v
 
       - name: "Save Rust / Cargo cache"
