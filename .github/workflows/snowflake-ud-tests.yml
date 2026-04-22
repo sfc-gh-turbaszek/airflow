@@ -14,13 +14,15 @@ on:  # yamllint disable-line rule:truthy
         description: "Universal Driver branch to test against"
         default: "main"
         required: false
+  repository_dispatch:
+    types: [snowflake-ud-tests]
 
 permissions:
   contents: read
 
 jobs:
   snowflake-unit-tests:
-    name: "Snowflake unit tests (Universal Driver @ ${{ github.event.inputs.ud-branch || 'main' }})"
+    name: "Snowflake unit tests (Universal Driver @ ${{ github.event.inputs.ud-branch || github.event.client_payload.ud-branch || 'main' }})"
     runs-on: ubuntu-latest
     env:
       UD_DIR: ${{ github.workspace }}/../universal-driver
@@ -32,10 +34,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: "Clone universal-driver @ ${{ github.event.inputs.ud-branch || 'main' }}"
+      - name: "Clone universal-driver @ ${{ github.event.inputs.ud-branch || github.event.client_payload.ud-branch || 'main' }}"
         run: >
           git clone --depth=1
-          --branch ${{ github.event.inputs.ud-branch || 'main' }}
+          --branch ${{ github.event.inputs.ud-branch || github.event.client_payload.ud-branch || 'main' }}
           https://github.com/snowflakedb/universal-driver
           ${{ github.workspace }}/../universal-driver
 
