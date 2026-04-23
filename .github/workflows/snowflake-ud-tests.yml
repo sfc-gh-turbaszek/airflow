@@ -10,10 +10,10 @@ on:  # yamllint disable-line rule:truthy
       - "providers/snowflake/**"
   workflow_dispatch:
     inputs:
-      ud-branch:
-        description: "Universal Driver branch to test against"
+      universal-driver-ref:
+        description: "Universal Driver git ref (branch, tag, or SHA)"
+        type: string
         default: "main"
-        required: false
   repository_dispatch:
     types: [snowflake-ud-tests]
 
@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   snowflake-unit-tests:
-    name: "Snowflake unit tests (Universal Driver @ ${{ github.event.inputs.ud-branch || github.event.client_payload.ud-branch || 'main' }})"
+    name: "Snowflake unit tests (Universal Driver @ ${{ github.event.inputs.universal-driver-ref || github.event.client_payload.universal-driver-ref || 'main' }})"
     runs-on: ubuntu-latest
     env:
       UD_DIR: ${{ github.workspace }}/../universal-driver
@@ -34,12 +34,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: "Clone universal-driver @ ${{ github.event.inputs.ud-branch || github.event.client_payload.ud-branch || 'main' }}"
-        run: >
-          git clone --depth=1
-          --branch ${{ github.event.inputs.ud-branch || github.event.client_payload.ud-branch || 'main' }}
-          https://github.com/snowflakedb/universal-driver
-          ${{ github.workspace }}/../universal-driver
+      - name: "Clone universal-driver @ ${{ github.event.inputs.universal-driver-ref || github.event.client_payload.universal-driver-ref || 'main' }}"
+        env:
+          UD_REF: ${{ github.event.inputs.universal-driver-ref || github.event.client_payload.universal-driver-ref || 'main' }}
+        run: |
+          git clone --depth=1 https://github.com/snowflakedb/universal-driver ${{ github.workspace }}/../universal-driver
+          git -C ${{ github.workspace }}/../universal-driver fetch --depth=1 origin "$UD_REF"
+          git -C ${{ github.workspace }}/../universal-driver checkout FETCH_HEAD
 
       - name: "Install Rust ${{ env.RUST_VERSION }} toolchain"
         uses: dtolnay/rust-toolchain@stable
